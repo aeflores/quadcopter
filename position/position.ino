@@ -9,108 +9,193 @@
  
 //Conversion de radianes a grados 180/PI
 #define RAD_A_DEG = 57.295779
- 
-//MPU-6050 da los valores en enteros de 16 bits
-//Valores sin refinar
-int16_t AcX, AcY, AcZ, GyX, GyY, GyZ;
- 
-float Accel[3];
-//Angulos
-float Acc[2];
-float Gy[2];
-float Angle[2];
 
-//medias
-float AvgX,AvgY,AvgZ;
-float AvgGX,AvgGY;
+class QuadState{
+
+  unsigned long ptime;
+  long interval;
+public:
+  float AcX,AcY,AcZ,GyX,GyY;
+  float AngleX,AngleY;
+  int engine[4];
+  QuadState(){
+    AcX=0;AcY=0;AcZ=0;GyX=0;GyY=0;
+    AngleX=0;
+    AngleY=0;
+    ptime=0;
+    interval=5;
+  }
+  void computeAngles(){
+     unsigned long time=millis();
+     if(time-ptime>interval){
+       ptime=time;
+       //Se calculan los angulos Y, X respectivamente.
+       float AccX = atan(-1*AcX/sqrt(pow(AcY,2) + pow(AcZ,2)))*RAD_TO_DEG;
+       float AccY = atan(AcY/sqrt(pow(AcX,2) + pow(AcZ,2)))*RAD_TO_DEG;
+       //Aplicar el Filtro Complementario
+       AngleX = 0.98 *(AngleX+GyX*0.010) + 0.02*AccX;
+       AngleY = 0.98 *(AngleY+GyY*0.010) + 0.02*AccY;
+     }
+  }
+};
+class AccelerometerReader{
+  unsigned long ptime;
+  long interval;
+public:
+  AccelerometerReader(){
+    interval=5;
+    ptime=0;
+  }
+  void init(){
+    Wire.begin();
+    Wire.beginTransmission(MPU);  
+    Wire.write(0x6B);
+    Wire.write(0);
+    Wire.endTransmission(true);
+  }
+  void Read(QuadState &state){
+    unsigned long time=millis();
+    if(time-ptime>interval){
+       ptime=time;
+         //Leer los valores del Acelerometro de la IMU
+       Wire.beginTransmission(MPU);
+       Wire.write(0x3B); //Pedir el registro 0x3B - corresponde al AcX
+       Wire.endTransmission(false);
+       Wire.requestFrom(MPU,6,true); //A partir del 0x3B, se piden 6 registros
+       int16_t AcX=Wire.read()<<8|Wire.read(); //Cada valor ocupa 2 registros
+       int16_t AcY=Wire.read()<<8|Wire.read();
+       int16_t AcZ=Wire.read()<<8|Wire.read();
+       state.AcX=AcX/A_R;
+       state.AcY=AcY/A_R;
+       state.AcZ=AcZ/A_R;
+
+       //Leer los valores del Giroscopio
+       Wire.beginTransmission(MPU);
+       Wire.write(0x43);
+       Wire.endTransmission(false);
+       Wire.requestFrom(MPU,4,true); //A diferencia del Acelerometro, solo se piden 4 registros
+       int16_t GyX=Wire.read()<<8|Wire.read();
+       int16_t GyY=Wire.read()<<8|Wire.read();
+       state.GyX=GyX/G_R;
+       state.GyY=GyY/G_R;
+    }
+  }
+};
+
+
+class Tester{
+  unsigned long ptime;
+  long interval;
+public:
+  Tester(){
+    ptime=0;
+    interval=10;
+  }
+
+void updateValues(QuadState &state){
+     // This is for testing
+   unsigned long time=millis();
+   if(time-ptime>interval){
+     ptime=time;
+     
+     if (state.engine[0]>state.engine[1])
+      state.AngleX= 15;
+     else    
+      state.AngleX= -15;
+     
+     if (state.engine[2]>state.engine[3])
+      state.AngleY= 15;
+     else    
+      state.AngleY= -15;
+
+     if (state.AcX>0.9)
+      state.AcX=-0.9;
+     else    
+      state.AcX=state.AcX+ 0.1;
+   }
+}
+
+};
+
+class SerialCommunicator{
+  unsigned long ptime;
+  long interval;
+  char buffer[20];
+  int bufferIndex;
+  int control;
+public:
+  SerialCommunicator(){
+    ptime=0;
+    interval=10;
+    bufferIndex=0;
+    control=0;
+  }
+  void init(){
+   Serial.begin(9600); 
+  }
+  void send_info(QuadState &state){
+   unsigned long time=millis();
+   if(time-ptime>interval){
+     ptime=time;
+     Serial.print("{");
+     Serial.print("\"accX\":"); Serial.print(state.AcX); 
+     Serial.print(",\"accY\":"); Serial.print(state.AcY); 
+     Serial.print(",\"accZ\":"); Serial.print(state.AcZ); 
+     Serial.print(",\"gyX\":"); Serial.print(state.GyX); 
+     Serial.print(",\"gyY\":"); Serial.print(state.GyY); 
+     //  Serial.print(",\"gyZ\":"); Serial.print(Gy[2]); 
+     Serial.print(",\"angleX\":"); Serial.print(state.AngleX); 
+     Serial.print(",\"angleY\":"); Serial.print(state.AngleY); 
+     Serial.print("}\n");
+   }
+ }
+ void recv_info(QuadState &state){
+   while(Serial.available()>0){
+                buffer[bufferIndex]= Serial.read();
+                if(buffer[bufferIndex]=='='){
+                  buffer[bufferIndex]='\0';
+                  set_control();
+                  bufferIndex=0;
+                } else if(buffer[bufferIndex]=='\n'){
+                  buffer[bufferIndex]='\0';
+                  set_value(state);
+                  bufferIndex=0;
+                } else
+                bufferIndex++;
+        }
+ }
+ void set_control(){
+   if (strcmp(buffer,"eng1")==0)
+     control=0;
+   else if (strcmp(buffer,"eng2")==0)
+     control=1;
+   else if (strcmp(buffer,"eng3")==0)
+     control=2;
+   else if (strcmp(buffer,"eng4")==0)
+     control=3;   
+ }
+ void set_value(QuadState &state){
+   String str(buffer);
+   state.engine[control]=str.toInt();
+ }
+    
+};
+
+QuadState state;
+//AccelerometerReader accReader;
+SerialCommunicator serialComm;
+Tester tester;
 void setup(){
-Wire.begin();
-Wire.beginTransmission(MPU);
-Wire.write(0x6B);
-Wire.write(0);
-Wire.endTransmission(true);
-Serial.begin(9600);
-AvgX=0;
-AvgY=0;
-AvgZ=0;
-Accel[0]=0;
-Accel[1]=0;
-Accel[2]=0;
+    serialComm.init();
+//    accReader.init();
 }
 
 void loop()
 {
-   //Leer los valores del Acelerometro de la IMU
-   Wire.beginTransmission(MPU);
-   Wire.write(0x3B); //Pedir el registro 0x3B - corresponde al AcX
-   Wire.endTransmission(false);
-   Wire.requestFrom(MPU,6,true); //A partir del 0x3B, se piden 6 registros
-   AcX=Wire.read()<<8|Wire.read(); //Cada valor ocupa 2 registros
-   AcY=Wire.read()<<8|Wire.read();
-   AcZ=Wire.read()<<8|Wire.read();
-   
-   AvgX=AvgX*0.9+ AcX/A_R *0.1;
-   AvgY=AvgY*0.9+ AcY/A_R *0.1;
-   AvgZ=AvgZ*0.9+ AcZ/A_R *0.1;
+ // accReader.Read(state);
+ // state.computeAngles();
+  tester.updateValues(state);
+  serialComm.send_info(state);
+  serialComm.recv_info(state);
 
-    //Se calculan los angulos Y, X respectivamente.
-   Acc[1] = atan(-1*(AcX/A_R)/sqrt(pow((AcY/A_R),2) + pow((AcZ/A_R),2)))*RAD_TO_DEG;
-   Acc[0] = atan((AcY/A_R)/sqrt(pow((AcX/A_R),2) + pow((AcZ/A_R),2)))*RAD_TO_DEG;
- 
-   //Leer los valores del Giroscopio
-   Wire.beginTransmission(MPU);
-   Wire.write(0x43);
-   Wire.endTransmission(false);
-   Wire.requestFrom(MPU,4,true); //A diferencia del Acelerometro, solo se piden 4 registros
-   GyX=Wire.read()<<8|Wire.read();
-   GyY=Wire.read()<<8|Wire.read();
- 
-   //Calculo del angulo del Giroscopio
-   Gy[0] = GyX/G_R;
-   Gy[1] = GyY/G_R;
-   AvgGX=AvgGX*0.9+ Gy[0] *0.1;
-   AvgGY=AvgGY*0.9+ Gy[1] *0.1;
- 
-
-   //Aplicar el Filtro Complementario
-   Angle[0] = 0.98 *(Angle[0]+Gy[0]*0.010) + 0.02*Acc[0];
-   Angle[1] = 0.98 *(Angle[1]+Gy[1]*0.010) + 0.02*Acc[1];
- 
-
-   Accel[0]=AcX/A_R;
-   Accel[1]=AcY/A_R;
-   Accel[2]=AcZ/A_R;
-   
-   // This is for testing
-   /*
-   if (Angle[0]>180)
-      Angle[0]=-180;
-   else    
-      Angle[0]=Angle[0]+ 1;
-   
-   if (Accel[0]>0.9)
-      Accel[0]=-0.9;
-   else    
-      Accel[0]=Accel[0]+ 0.1;
-   if (Accel[1]>0.9)
-      Accel[1]= -0.9;
-   else    
-      Accel[1]=Accel[1]+ 0.01;
-      
-   if (Accel[2]>0.9)
-      Accel[2]=-0.9;
-   else    
-      Accel[2]=Accel[2]+0.001;   
-   */
-   Serial.print("{");
-   Serial.print("\"accX\":"); Serial.print(Accel[0]); 
-   Serial.print(",\"accY\":"); Serial.print(Accel[1]); 
-   Serial.print(",\"accZ\":"); Serial.print(Accel[2]); 
-   Serial.print(",\"gyX\":"); Serial.print(Gy[0]); 
-   Serial.print(",\"gyY\":"); Serial.print(Gy[1]); 
- //  Serial.print(",\"gyZ\":"); Serial.print(Gy[2]); 
-   Serial.print(",\"angleX\":"); Serial.print(Angle[0]); 
-   Serial.print(",\"angleY\":"); Serial.print(Angle[1]); 
-   Serial.print("}\n");
-   delay(10); 
 }

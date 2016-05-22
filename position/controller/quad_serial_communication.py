@@ -40,9 +40,16 @@ class commThread (threading.Thread):
                 print "read "+state_string
                 try:
                         json_data = json.loads(state_string)
-                        self.state.update(json_data)
+                        self.state.update_sensors(json_data)
                 except ValueError:
                         print("invalid json term")
+
+                if self.state.controls_modified.is_set():
+                        self.state.controls_modified.clear()
+                        control_dicc=self.state.getControlValues()
+                        for key in control_dicc:
+                                self.serial_port.write(key+"="+control_dicc[key]+"\n")
+                        
         print "Closing communication thread"
         self.serial_port.close()
 

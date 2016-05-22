@@ -32,7 +32,12 @@ class virtualCommThread (threading.Thread):
         while not self.finished.is_set():
                 self.virtualState.updateWorld()
                 sensorValues=self.virtualState.getSensorValues()
-                self.state.update(sensorValues)
+                self.state.update_sensors(sensorValues)
+                if self.state.controls_modified.is_set():
+                        self.state.controls_modified.clear()
+                        controlValues=self.state.getControlValues()
+                        self.virtualState.update_controls(controlValues)
+                        
                 time.sleep(0.01)
         print "Finished simulation"
 
