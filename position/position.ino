@@ -182,19 +182,19 @@ public:
 };
 
 QuadState state;
-//AccelerometerReader accReader;
+AccelerometerReader accReader;
 SerialCommunicator serialComm;
-Tester tester;
+//Tester tester;
 void setup(){
     serialComm.init();
-//    accReader.init();
+    accReader.init();
 }
 
 void loop()
 {
- // accReader.Read(state);
- // state.computeAngles();
-  tester.updateValues(state);
+  accReader.Read(state);
+  state.computeAngles();
+ //tester.updateValues(state);
   serialComm.send_info(state);
   serialComm.recv_info(state);
 
