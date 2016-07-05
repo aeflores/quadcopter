@@ -4,7 +4,7 @@ class QuadcopterState:
         def __init__(self):
                 self.sensors_modified=threading.Event()
                 self.controls_modified=threading.Event()
-                self.sensor_dicc={"accX":0,"accY":0,"accZ":0,"gyX":0,"gyY":0,"gyZ":0,"angleX":0,"angleY":0}
+                self.sensor_dicc={"accX":0,"accY":0,"accZ":0,"gyX":0,"gyY":0,"gyZ":0,"angleX":0,"angleY":0,"eng1":1000,"eng2":1000,"eng3":1000,"eng4":1000}
                 self.control_dicc={"eng1":1000, "eng2":1000, "eng3":1000,"eng4":1000}
         #Update the values of the state
         def update_sensors(self,update_dict):

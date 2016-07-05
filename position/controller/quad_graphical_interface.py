@@ -8,7 +8,7 @@ class MainInterface:
                 self.root=root
                 self.state=state
 
-                self.dataNameList=["accX","accY","accZ","gyX","gyY","gyZ","angleX","angleY"]
+                self.dataNameList=["accX","accY","accZ","gyX","gyY","gyZ","angleX","angleY","eng1","eng2","eng3","eng4"]
                 self.dataValueList=dict()
  
                 self.barNameList=["accX","accY","accZ","gyX","gyY","gyZ"]

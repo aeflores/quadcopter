@@ -41,10 +41,7 @@ public:
   }
   void set_engine(int engineId,int value){
    eng_speed[engineId]=value; 
-  }
-  void update_engines(){
-    for(int i=0;i<4;i++)
-       engine[i].writeMicroseconds(eng_speed[i]);
+   engine[engineId].writeMicroseconds(eng_speed[engineId]);
   }
   void computeAngles(){
      unsigned long time=millis();
@@ -167,6 +164,8 @@ public:
      //  Serial.print(",\"gyZ\":"); Serial.print(Gy[2]); 
      Serial.print(",\"angleX\":"); Serial.print(state.AngleX); 
      Serial.print(",\"angleY\":"); Serial.print(state.AngleY); 
+     
+     Serial.print(",\"eng1\":"); Serial.print(state.eng_speed[0]); 
      Serial.print("}\n");
    }
  }
@@ -215,7 +214,6 @@ void loop()
 {
   accReader.Read(state);
   state.computeAngles();
-  state.update_engines();
  //tester.updateValues(state);
   serialComm.send_info(state);
   serialComm.recv_info(state);
