@@ -32,6 +32,8 @@ public:
     AngleY=0;
     ptime=0;
     interval=5;
+  }
+  void init(){
     for(int i=0;i<4;i++)
        eng_speed[i]=InitialSpeed;
     engine[0].attach(Eng0);
@@ -208,6 +210,7 @@ SerialCommunicator serialComm;
 void setup(){
     serialComm.init();
     accReader.init();
+    state.init();
 }
 
 void loop()
