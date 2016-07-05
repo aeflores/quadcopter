@@ -1,5 +1,5 @@
 #include <Wire.h>
- 
+#include<Servo.h> 
 //Direccion I2C de la IMU
 #define MPU 0x68
  
@@ -10,6 +10,13 @@
 //Conversion de radianes a grados 180/PI
 #define RAD_A_DEG = 57.295779
 
+#define Eng0 2
+#define Eng1 3
+#define Eng2 4
+#define Eng3 5
+
+#define InitialSpeed 1000
+
 class QuadState{
 
   unsigned long ptime;
@@ -17,13 +24,27 @@ class QuadState{
 public:
   float AcX,AcY,AcZ,GyX,GyY;
   float AngleX,AngleY;
-  int engine[4];
+  int eng_speed[4];
+  Servo engine[4];
   QuadState(){
     AcX=0;AcY=0;AcZ=0;GyX=0;GyY=0;
     AngleX=0;
     AngleY=0;
     ptime=0;
     interval=5;
+    for(int i=0;i<4;i++)
+       eng_speed[i]=InitialSpeed;
+    engine[0].attach(Eng0);
+    engine[1].attach(Eng1);
+    engine[2].attach(Eng2);
+    engine[3].attach(Eng3);
+  }
+  void set_engine(int engineId,int value){
+   eng_speed[engineId]=value; 
+  }
+  void update_engines(){
+    for(int i=0;i<4;i++)
+       engine[i].writeMicroseconds(eng_speed[i]);
   }
   void computeAngles(){
      unsigned long time=millis();
@@ -82,7 +103,7 @@ public:
   }
 };
 
-
+/*
 class Tester{
   unsigned long ptime;
   long interval;
@@ -116,7 +137,7 @@ void updateValues(QuadState &state){
 }
 
 };
-
+*/
 class SerialCommunicator{
   unsigned long ptime;
   long interval;
@@ -176,7 +197,7 @@ public:
  }
  void set_value(QuadState &state){
    String str(buffer);
-   state.engine[control]=str.toInt();
+   state.set_engine(control,str.toInt());
  }
     
 };
@@ -194,6 +215,7 @@ void loop()
 {
   accReader.Read(state);
   state.computeAngles();
+  state.update_engines();
  //tester.updateValues(state);
   serialComm.send_info(state);
   serialComm.recv_info(state);
