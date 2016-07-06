@@ -40,6 +40,8 @@ public:
     engine[1].attach(Eng1);
     engine[2].attach(Eng2);
     engine[3].attach(Eng3);
+    for(int i=0;i<4;i++)
+       engine[i].writeMicroseconds(eng_speed[i]);
   }
   void set_engine(int engineId,int value){
    eng_speed[engineId]=value; 
