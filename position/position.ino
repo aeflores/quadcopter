@@ -5,8 +5,13 @@
  
 //Ratios de conversion
 #define A_R 16384.0
-#define G_R 131.0
- 
+#define G_R 10.0
+
+// we compute bias for 10 cycles
+#define BIAS_CYCLES 10
+//this is the float version to compute the average
+#define BIAS_DIVIDER 10.0
+
 //Conversion de radianes a grados 180/PI
 #define RAD_A_DEG = 57.295779
 
@@ -26,6 +31,7 @@ public:
   float AngleX,AngleY;
   int eng_speed[4];
   Servo engine[4];
+  
   QuadState(){
     AcX=0;AcY=0;AcZ=0;GyX=0;GyY=0;
     AngleX=0;
@@ -63,10 +69,17 @@ public:
 class AccelerometerReader{
   unsigned long ptime;
   long interval;
+  int bias_counter;
+  float biasX;
+  float biasY;
 public:
   AccelerometerReader(){
     interval=5;
     ptime=0;
+
+    bias_counter=0;
+    biasX=0;
+    biasY=0;
   }
   void init(){
     Wire.begin();
@@ -96,11 +109,22 @@ public:
        Wire.write(0x43);
        Wire.endTransmission(false);
        Wire.requestFrom(MPU,4,true); //A diferencia del Acelerometro, solo se piden 4 registros
-       int16_t GyX=Wire.read()<<8|Wire.read();
        int16_t GyY=Wire.read()<<8|Wire.read();
+       int16_t GyX=Wire.read()<<8|Wire.read();
        state.GyX=GyX/G_R;
        state.GyY=GyY/G_R;
+       if (bias_counter<BIAS_CYCLES){
+         update_bias(state.GyX,state.GyY);
+         bias_counter++;
+       }else{
+       state.GyX=state.GyX-biasX;
+       state.GyY=state.GyY-biasY;
+       }
     }
+  }
+  void update_bias(float x,float y){
+    biasX+=x/BIAS_DIVIDER;
+    biasY+=y/BIAS_DIVIDER;
   }
 };
 
