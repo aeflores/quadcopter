@@ -53,7 +53,9 @@ class QuadcopterState:
             engine_force=[Fmax*engine[0],Fmax*engine[1],Fmax*engine[2],Fmax*engine[3]]
             print "engine forces:"+str(engine_force)
             Tmax=(240*60)/(12100*2*math.pi)
-            Tzi=[Tmax*engine[0],-Tmax*engine[1],Tmax*engine[2],-Tmax*engine[3]]
+            print "Tmax:"+str(Tmax)
+            Tzi=[Tmax*engine[0],-Tmax*engine[1],-Tmax*engine[2],Tmax*engine[3]]
+            print "Tzi:"+str(Tzi)
             Tzi_total=Tzi[0]+Tzi[1]+Tzi[2]+Tzi[3]
             print "par z:"+str(Tzi_total)
             #compute Mi
@@ -108,18 +110,22 @@ class QuadcopterState:
             self.sensor_dicc["accY"]=accY/g
             self.sensor_dicc["accZ"]=accZ/g
             
-            self.sensor_dicc["gyX"]=p
-            self.sensor_dicc["gyY"]=q
-            self.sensor_dicc["gyZ"]=r
+            self.sensor_dicc["gyX"]=p*30/math.pi
+            self.sensor_dicc["gyY"]=q*30/math.pi
+            self.sensor_dicc["gyZ"]=r*30/math.pi
             
         def computeSensorAngles(self):
             RAD_TO_DEG=57.295779
-            AccX = math.atan(-1*self.sensor_dicc["accX"]/math.sqrt(pow(self.sensor_dicc["accY"],2) + pow(self.sensor_dicc["accZ"],2)))*RAD_TO_DEG;
-            AccY = math.atan(self.sensor_dicc["accY"]/math.sqrt(pow(self.sensor_dicc["accX"],2) + pow(self.sensor_dicc["accZ"],2)))*RAD_TO_DEG;
+            AccY = math.atan(-1*self.sensor_dicc["accX"]/math.sqrt(pow(self.sensor_dicc["accY"],2) + pow(self.sensor_dicc["accZ"],2)))*RAD_TO_DEG
+            AccX = math.atan(self.sensor_dicc["accY"]/math.sqrt(pow(self.sensor_dicc["accX"],2) + pow(self.sensor_dicc["accZ"],2)))*RAD_TO_DEG
             self.sensor_dicc["angleX"]=self.iAngleX*RAD_TO_DEG
             self.sensor_dicc["angleY"]=self.iAngleY*RAD_TO_DEG
-            #self.sensor_dicc["angleX"] = 0.98 *(self.sensor_dicc["angleX"]+self.sensor_dicc["gyX"]*0.010) + 0.02*AccX;
-            #self.sensor_dicc["angleY"] = 0.98 *(self.sensor_dicc["angleY"]+self.sensor_dicc["gyY"]*0.010) + 0.02*AccY;
+            #self.sensor_dicc["angleX"] = 0.98 *(self.sensor_dicc["angleX"]+self.sensor_dicc["gyX"]) + 0.02*AccX
+            #self.sensor_dicc["angleY"] = 0.98*(self.sensor_dicc["angleY"]+self.sensor_dicc["gyY"]) + 0.02*AccY
+            #print "diff angulos"
+            #print (self.iAngleX*RAD_TO_DEG)-self.sensor_dicc["angleX"] 
+            #print (self.iAngleY*RAD_TO_DEG)-self.sensor_dicc["angleY"]
+
         
         def model(self,x):
             p=x[0]
@@ -139,8 +145,11 @@ class QuadcopterState:
            
         def updateControl(self):
             ek=5
-            dk=10
+            dk=70
             ik=0.001
+            ekZ=50
+            dkZ=10
+            ikZ=0.5
             print self.control_dicc
             err_angleX=self.control_dicc["aX"]-self.sensor_dicc["angleX"]
             err_angleY=self.control_dicc["aY"]-self.sensor_dicc["angleY"]
@@ -157,7 +166,7 @@ class QuadcopterState:
             
             self.accum_err_vel_angleZ=self.accum_err_vel_angleZ+err_vel_angleZ
             diff_err_vel_angleZ=err_vel_angleZ-self.old_err_velZ
-            unbalanceZ=ek*err_vel_angleZ+dk*diff_err_vel_angleZ+ik*self.accum_err_vel_angleZ
+            unbalanceZ=ekZ*err_vel_angleZ+dkZ*diff_err_vel_angleZ+ikZ*self.accum_err_vel_angleZ
             
             self.old_errX=err_angleX
             self.old_errY=err_angleY
@@ -166,13 +175,13 @@ class QuadcopterState:
             unbalanceX=-unbalanceX
             unbalanceY=-unbalanceY
             #Forward left
-            self.sensor_dicc["eng1"]=self.control_dicc["power"]+unbalanceX+unbalanceY+unbalanceZ
+            self.sensor_dicc["eng1"]=min(max(self.control_dicc["power"]+unbalanceX+unbalanceY+unbalanceZ,1000),2000)
             #Forward right
-            self.sensor_dicc["eng2"]=self.control_dicc["power"]-unbalanceX+unbalanceY-unbalanceZ
+            self.sensor_dicc["eng2"]=min(max(self.control_dicc["power"]-unbalanceX+unbalanceY-unbalanceZ,1000),2000)
             #Back left
-            self.sensor_dicc["eng3"]=self.control_dicc["power"]+unbalanceX-unbalanceY-unbalanceZ
+            self.sensor_dicc["eng3"]=min(max(self.control_dicc["power"]+unbalanceX-unbalanceY-unbalanceZ,1000),2000)
             #Back right
-            self.sensor_dicc["eng4"]=self.control_dicc["power"]-unbalanceX-unbalanceY+unbalanceZ
+            self.sensor_dicc["eng4"]=min(max(self.control_dicc["power"]-unbalanceX-unbalanceY+unbalanceZ,1000),2000)
             
         def getSensorValues(self):
                 return self.sensor_dicc
