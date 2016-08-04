@@ -16,7 +16,7 @@ class QuadcopterState:
                         self.control_dicc[key]=update_dict[key]
                 self.controls_modified.set()
                 
-        def updateWorld(self):
+        def updateModel(self):
                 if self.sensor_dicc["accX"]>0.9:
                         self.sensor_dicc["accX"]=-0.9
                 else:
