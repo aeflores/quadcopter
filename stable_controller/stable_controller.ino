@@ -37,6 +37,7 @@ public:
   
   float DAngleX,DAngleY;
   int power;
+  int STOP;
   float velZ;
   float ek,dk,ik,ekZ,dkZ,ikZ;
   float old_errX,old_errY,old_errVZ;
@@ -50,6 +51,7 @@ public:
     interval=50;
     intervalControl=50;
    
+    STOP=0;
     DAngleX=0;
     DAngleY=0;
     power=1000;
@@ -85,50 +87,54 @@ public:
   }
   void setVelZ(int val){
    velZ=val;
+  }  
+  void setSTOP(int val){
+   STOP=val;
   }
   void updateControl(){
      unsigned long timeControl=millis();
     if(timeControl-ptimeControl>intervalControl){
         ptimeControl=timeControl;
-        // try to reach the objective in 0.2 secs
-        float fut_angleX=AngleX+GyX*0.2;
-        float fut_angleY=AngleY+GyY*0.2;
-        float err_angleX=DAngleX-fut_angleX;
-        float err_angleY=DAngleY-fut_angleY;
-        float err_vel_angleZ=velZ-GyZ;
-
-        accum_errX=accum_errX+err_angleX;
-        float diff_errX=err_angleX-old_errX;
-        float unbalanceX=ek*err_angleX+dk*diff_errX+ik*accum_errX;
-                
-        accum_errY=accum_errY+err_angleY;
-        float diff_errY=err_angleY-old_errY;
-        float unbalanceY=ek*err_angleY+dk*diff_errY+ik*accum_errY;
-                
-        accum_errVZ=accum_errVZ+err_vel_angleZ;
-        float diff_errVZ=err_vel_angleZ-old_errVZ;
-        float unbalanceZ=ekZ*err_vel_angleZ+dkZ*diff_errVZ+ikZ*accum_errVZ;
-                
-        old_errX=err_angleX;
-        old_errY=err_angleY;
-        old_errVZ=err_vel_angleZ;
-                
-        unbalanceY=-unbalanceY;
-        //Forward left 
-        set_engine(0,int(min(max(power+unbalanceX+unbalanceY+unbalanceZ,1000),2000)));
-        //Forward right
-        set_engine(1,int(min(max(power-unbalanceX+unbalanceY-unbalanceZ,1000),2000)));
-        //Back left
-        set_engine(2,int(min(max(power+unbalanceX-unbalanceY-unbalanceZ,1000),2000)));
-        //Back right
-        set_engine(3,int(min(max(power-unbalanceX-unbalanceY+unbalanceZ,1000),2000)));
+        if(STOP>0){
+          set_engine(0,1000);
+          set_engine(1,1000);
+          set_engine(2,1000);
+          set_engine(3,1000);
+        }else{
+          // try to reach the objective in 0.2 secs
+          float fut_angleX=AngleX+GyX*0.2;
+          float fut_angleY=AngleY+GyY*0.2;
+          float err_angleX=DAngleX-fut_angleX;
+          float err_angleY=DAngleY-fut_angleY;
+          float err_vel_angleZ=velZ-GyZ;
+  
+          accum_errX=accum_errX+err_angleX;
+          float diff_errX=err_angleX-old_errX;
+          float unbalanceX=ek*err_angleX+dk*diff_errX+ik*accum_errX;
+                  
+          accum_errY=accum_errY+err_angleY;
+          float diff_errY=err_angleY-old_errY;
+          float unbalanceY=ek*err_angleY+dk*diff_errY+ik*accum_errY;
+                  
+          accum_errVZ=accum_errVZ+err_vel_angleZ;
+          float diff_errVZ=err_vel_angleZ-old_errVZ;
+          float unbalanceZ=ekZ*err_vel_angleZ+dkZ*diff_errVZ+ikZ*accum_errVZ;
+                  
+          old_errX=err_angleX;
+          old_errY=err_angleY;
+          old_errVZ=err_vel_angleZ;
+                  
+          unbalanceY=-unbalanceY;
+          //Forward left 
+          set_engine(0,int(min(max(power+unbalanceX+unbalanceY+unbalanceZ,1000),2000)));
+          //Forward right
+          set_engine(1,int(min(max(power-unbalanceX+unbalanceY-unbalanceZ,1000),2000)));
+          //Back left
+          set_engine(2,int(min(max(power+unbalanceX-unbalanceY-unbalanceZ,1000),2000)));
+          //Back right
+          set_engine(3,int(min(max(power-unbalanceX-unbalanceY+unbalanceZ,1000),2000)));
+        }
     }
-  }
-  void emergencyLanding(){
-    set_engine(0,1000);
-    set_engine(1,1000);
-    set_engine(2,1000);
-    set_engine(3,1000);
   }
   void set_engine(int engineId,int value){
    eng_speed[engineId]=value; 
@@ -266,8 +272,6 @@ public:
                 } else
                 bufferIndex++;
         }
-    if(!Serial)
-      state.emergencyLanding();
  }
  void set_control(){
    if (strcmp(buffer,"aX")==0)
@@ -278,6 +282,8 @@ public:
      control=2;
    else if (strcmp(buffer,"rotateZ")==0)
      control=3;   
+    else if (strcmp(buffer,"STOP")==0)
+     control=4;     
  }
  void set_value(QuadState &state){
    String str(buffer);
@@ -293,6 +299,9 @@ public:
       break;
     case 3:
       state.setVelZ(str.toInt());
+      break;
+    case 4:
+      state.setSTOP(str.toInt());
       break;
     default:
         break;

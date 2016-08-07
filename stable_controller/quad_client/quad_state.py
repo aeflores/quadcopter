@@ -9,7 +9,7 @@ class QuadcopterState:
                 self.sensors_modified=threading.Event()
                 self.controls_modified=threading.Event()
                 self.sensor_dicc={"accX":0,"accY":0,"accZ":0,"gyX":0,"gyY":0,"gyZ":0,"angleX":0,"angleY":0,"eng1":1000,"eng2":1000,"eng3":1000,"eng4":1000}
-                self.control_dicc={"aX":0, "aY":0, "power":1000,"rotateZ":0}
+                self.control_dicc={"STOP":0,"aX":0, "aY":0, "power":1000,"rotateZ":0}
    
                 self.accum_errX=0.0
                 self.accum_errY=0.0
@@ -34,6 +34,7 @@ class QuadcopterState:
         def update_controls(self,update_dict):
                 for key in update_dict:
                         self.control_dicc[key]=update_dict[key]
+                print self.control_dicc       
                 self.controls_modified.set()
                 
         def updateModel(self):
@@ -151,44 +152,47 @@ class QuadcopterState:
             ekZ=10
             dkZ=2
             ikZ=0.1
-            print self.control_dicc
-            #err_angleX=self.control_dicc["aX"]-self.sensor_dicc["angleX"]
-            
-            fut_angleX=self.sensor_dicc["angleX"]+(self.sensor_dicc["gyX"]*0.2)
-            err_angleX=self.control_dicc["aX"]-fut_angleX
-            
-            fut_angleY=self.sensor_dicc["angleY"]+(self.sensor_dicc["gyY"]*0.2)
-            err_angleY=self.control_dicc["aY"]-fut_angleY
+            if self.control_dicc["STOP"]>0:
+                self.sensor_dicc["eng1"]=1000
+                self.sensor_dicc["eng2"]=1000
+                self.sensor_dicc["eng3"]=1000
+                self.sensor_dicc["eng4"]=1000
+            else:
+                fut_angleX=self.sensor_dicc["angleX"]+(self.sensor_dicc["gyX"]*0.2)
+                err_angleX=self.control_dicc["aX"]-fut_angleX
+                
+                fut_angleY=self.sensor_dicc["angleY"]+(self.sensor_dicc["gyY"]*0.2)
+                err_angleY=self.control_dicc["aY"]-fut_angleY
 
-            err_vel_angleZ=self.control_dicc["rotateZ"]-self.sensor_dicc["gyZ"]
-            print err_angleX
-            print err_angleY
-            self.accum_errX=self.accum_errX+err_angleX
-            diff_errX=err_angleX-self.old_errX
-            unbalanceX=ek*err_angleX+dk*diff_errX+ik*self.accum_errX
-            
-            self.accum_errY=self.accum_errY+err_angleY
-            diff_errY=err_angleY-self.old_errY
-            unbalanceY=ek*err_angleY+dk*diff_errY+ik*self.accum_errY
-            
-            self.accum_err_vel_angleZ=self.accum_err_vel_angleZ+err_vel_angleZ
-            diff_err_vel_angleZ=err_vel_angleZ-self.old_err_velZ
-            unbalanceZ=ekZ*err_vel_angleZ+dkZ*diff_err_vel_angleZ+ikZ*self.accum_err_vel_angleZ
-            
-            self.old_errX=err_angleX
-            self.old_errY=err_angleY
-            self.old_err_velZ=err_vel_angleZ
-            
-            unbalanceX=-unbalanceX
-            unbalanceY=-unbalanceY
-            #Forward left
-            self.sensor_dicc["eng1"]=min(max(self.control_dicc["power"]+unbalanceX+unbalanceY+unbalanceZ,1000),2000)
-            #Forward right
-            self.sensor_dicc["eng2"]=min(max(self.control_dicc["power"]-unbalanceX+unbalanceY-unbalanceZ,1000),2000)
-            #Back left
-            self.sensor_dicc["eng3"]=min(max(self.control_dicc["power"]+unbalanceX-unbalanceY-unbalanceZ,1000),2000)
-            #Back right
-            self.sensor_dicc["eng4"]=min(max(self.control_dicc["power"]-unbalanceX-unbalanceY+unbalanceZ,1000),2000)
+                err_vel_angleZ=self.control_dicc["rotateZ"]-self.sensor_dicc["gyZ"]
+                print err_angleX
+                print err_angleY
+                self.accum_errX=self.accum_errX+err_angleX
+                diff_errX=err_angleX-self.old_errX
+                unbalanceX=ek*err_angleX+dk*diff_errX+ik*self.accum_errX
+                
+                self.accum_errY=self.accum_errY+err_angleY
+                diff_errY=err_angleY-self.old_errY
+                unbalanceY=ek*err_angleY+dk*diff_errY+ik*self.accum_errY
+                
+                self.accum_err_vel_angleZ=self.accum_err_vel_angleZ+err_vel_angleZ
+                diff_err_vel_angleZ=err_vel_angleZ-self.old_err_velZ
+                unbalanceZ=ekZ*err_vel_angleZ+dkZ*diff_err_vel_angleZ+ikZ*self.accum_err_vel_angleZ
+                
+                self.old_errX=err_angleX
+                self.old_errY=err_angleY
+                self.old_err_velZ=err_vel_angleZ
+                
+                unbalanceX=-unbalanceX
+                unbalanceY=-unbalanceY
+                #Forward left
+                self.sensor_dicc["eng1"]=min(max(self.control_dicc["power"]+unbalanceX+unbalanceY+unbalanceZ,1000),2000)
+                #Forward right
+                self.sensor_dicc["eng2"]=min(max(self.control_dicc["power"]-unbalanceX+unbalanceY-unbalanceZ,1000),2000)
+                #Back left
+                self.sensor_dicc["eng3"]=min(max(self.control_dicc["power"]+unbalanceX-unbalanceY-unbalanceZ,1000),2000)
+                #Back right
+                self.sensor_dicc["eng4"]=min(max(self.control_dicc["power"]-unbalanceX-unbalanceY+unbalanceZ,1000),2000)
             
         def getSensorValues(self):
                 return self.sensor_dicc
