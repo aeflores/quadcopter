@@ -10,6 +10,8 @@ class MainInterface:
                 self.dataValueList=dict()
  
                 self.barNameList=["accX","accY","accZ","gyX","gyY","gyZ","eng1","eng2","eng3","eng4"]
+                self.barMinVals={"accX":-2.0,"accY":-2.0,"accZ":-2.0,"gyX":-250.0,"gyY":-250.0,"gyZ":-250.0,"eng1":1000.0,"eng2":1000.0,"eng3":1000.0,"eng4":1000.0}
+                self.barMaxVals={"accX":2.0,"accY":2.0,"accZ":2.0,"gyX":250.0,"gyY":250.0,"gyZ":250.0,"eng1":2000.0,"eng2":2000.0,"eng3":2000.0,"eng4":2000.0}
                 self.barValueList=dict()
 
                 self.angleNameList=["angleX","angleY"]
@@ -42,20 +44,22 @@ class MainInterface:
         def create_barFrame(self,graphicalFrame):
                 barFrame=Frame(graphicalFrame)
                 for x in self.barNameList:
-                        self.barValueList[x]=barCanvas(barFrame)
+                        self.barValueList[x]=barCanvas(barFrame,x,self.barMinVals[x],self.barMaxVals[x])
                 barFrame.pack(side=TOP)
         def create_angleFrame(self,graphicalFrame):
                 angleFrame=Frame(graphicalFrame)
                 for x in self.angleNameList:
-                        self.angleValueList[x]=angleCanvas(angleFrame)
+                        self.angleValueList[x]=angleCanvas(angleFrame,x)
                 angleFrame.pack(side=TOP)
         
         def create_actionFrame(self):
                 controlFrame=Frame(self.root)
                 #self.abortButton=Button(controlFrame,lambda update_map:self.updateControl(update_map))
                 self.updownControl=touchControl(controlFrame,"vertical","power","",False,{"Y":1000},{"minY":1000,"maxY":2000},lambda update_map:self.updateControl(update_map))
-                self.rotateControl=touchControl(controlFrame,"horizontal","rotateZ","",True,{"X":0.0},{"minX":-1.0,"maxX":1.0},lambda update_map:self.updateControl(update_map))
-                self.moveControl=touchControl(controlFrame,"2D","aX", "aY",True,{"X":0.0,"Y":0.0},{"minX":-90.0,"maxX":90.0,"minY":-90.0,"maxY":90.0},lambda update_map:self.updateControl(update_map))
+                verticalFrame=Frame(controlFrame)
+                self.rotateControl=touchControl(verticalFrame,"horizontal","rotateZ","",True,{"X":0.0},{"minX":-20.0,"maxX":20.0},lambda update_map:self.updateControl(update_map))
+                self.moveControl=touchControl(verticalFrame,"2D","aX", "aY",True,{"X":0.0,"Y":0.0},{"minX":-45.0,"maxX":45.0,"minY":-45.0,"maxY":45.0},lambda update_map:self.updateControl(update_map))
+                verticalFrame.pack(side=LEFT)
                 controlFrame.pack(side=LEFT)
                 
         def create_engineFrame(self,actionFrame):
@@ -76,7 +80,7 @@ class MainInterface:
                         self.state.sensors_modified.clear()
                         sensor_dicc=self.state.getSensorValues()
                         for key in self.dataValueList:
-                                self.dataValueList[key].set(key+": "+str(sensor_dicc[key]))
+                                self.dataValueList[key].set(key+": "+"{:.2f}".format(sensor_dicc[key]))
                         for key in self.barValueList:
                                 self.barValueList[key].setValue(sensor_dicc[key])
                         for key in self.angleValueList:
@@ -121,14 +125,25 @@ class touchControl:
         self.control_name2=control_name2
         self.orientation=Orientation
         self.with_reset=with_reset
-        self.canvas= Canvas(topFrame, bg="white", height=self.maxY, width=self.maxX)
+        
+        self.labelName=StringVar()
+        self.labelName.set(control_name+" "+control_name2)
+        frame=Frame(topFrame)
+        label=Label(frame,textvariable=self.labelName)
+        self.canvas= Canvas(frame, bg="white", height=self.maxY, width=self.maxX)
         self.canvas.create_line(0, self.screenY(), self.maxX,self.screenY())
         self.canvas.create_line(self.screenX(), 0, self.screenX(),self.maxY)
         self.draw_pointer("blue")
         self.canvas.bind('<Button>',self.press)
         self.canvas.bind('<Motion>',self.move)
         self.canvas.bind('<ButtonRelease>',self.release)
-        self.canvas.pack(side=LEFT)
+        
+        label.pack(side=TOP)
+        self.canvas.pack(side=TOP)
+        if Orientation=="vertical":
+            frame.pack(side=LEFT)
+        else:
+            frame.pack(side=TOP)
 
     def screenX(self):
         return int(((self.x-self.rangeXmin)/(self.rangeXmax-self.rangeXmin))*self.maxX)
@@ -180,34 +195,50 @@ class touchControl:
     	elif self.orientation=="vertical":
     		update_map={self.control_name:self.y}
     	self.function(update_map)
+    	
 class barCanvas:
-	def __init__(self,topFrame):
-                self.max=300
-                self.max_observed=1.0
-                self.canvas = Canvas(topFrame, bg="white", height=self.max, width=50)
+	def __init__(self,topFrame,name,min,max):
+                self.name=StringVar()
+                self.name.set(name)
+                self.max=max
+                self.min=min
+                self.height=300
+                frame=Frame(topFrame)
+                label=Label(frame,textvariable=self.name)
+                self.canvas = Canvas(frame, bg="white", height=self.height, width=50)
                 self.rectangle=self.canvas.create_rectangle(0, 0, 50, 50, fill="blue")
-                self.canvas.pack(side=LEFT)
+                label.pack(side=TOP)
+                self.canvas.pack(side=TOP)
+                frame.pack(side=LEFT)
         def setValue(self,value):
             self.canvas.delete(self.rectangle)
-            self.max_observed=max(abs(value),self.max_observed)
-            scaled_val=int((value/self.max_observed)*(self.max/2))
-            if scaled_val>=0:
-                self.rectangle=self.canvas.create_rectangle(0, self.max/2-scaled_val, 50,self.max/2, fill="green")
+            scaled_val=int((value-self.min)/(self.max-self.min)*self.height)
+            if value>0:
+                if self.min<0:
+                    self.rectangle=self.canvas.create_rectangle(0, self.height-scaled_val, 50,self.height/2, fill="green")
+                else:
+                    self.rectangle=self.canvas.create_rectangle(0, self.height-scaled_val, 50,self.height, fill="green")
             else:
-                self.rectangle=self.canvas.create_rectangle(0, self.max/2, 50,self.max/2-scaled_val, fill="red")
+                self.rectangle=self.canvas.create_rectangle(0, self.height/2, 50,self.height-scaled_val, fill="red")
 
 class angleCanvas:
-	def __init__(self,topFrame):
+	def __init__(self,topFrame,name):
+                self.name=StringVar()
+                self.name.set(name)
                 self.maxHeight=200
                 self.maxWidth=200
                 coord = 0, 0,self.maxWidth, self.maxHeight
-                self.canvas=Canvas(topFrame, bg="white", height=self.maxHeight, width=self.maxWidth)
+                frame=Frame(topFrame)
+                label=Label(frame,textvariable=self.name)
+                self.canvas=Canvas(frame, bg="white", height=self.maxHeight, width=self.maxWidth)
                 self.canvas.create_oval(coord,fill="gray90")
                 self.canvas.create_line(0, self.maxHeight/2, self.maxWidth,self.maxHeight/2)
                 self.canvas.create_line(self.maxWidth/2, 0, self.maxWidth/2,self.maxHeight)
                 #self.canvas.create_line(0, self.maxWidth/2, self.maxHeight,self.maxWidth/2)
                 self.arc=self.canvas.create_line(0, self.maxHeight/2, self.maxWidth,self.maxHeight/2)
-                self.canvas.pack(side=LEFT)
+                label.pack(side=TOP)
+                self.canvas.pack(side=TOP)
+                frame.pack(side=LEFT)
         def setValue(self,value):
                 angle=math.radians(value)
                 h=self.maxWidth/2

@@ -1,7 +1,7 @@
 import threading
 import math
 from scipy import optimize
-
+import random
 
     
 class QuadcopterState:
@@ -110,18 +110,19 @@ class QuadcopterState:
             self.sensor_dicc["accY"]=accY/g
             self.sensor_dicc["accZ"]=accZ/g
             
-            self.sensor_dicc["gyX"]=p*30/math.pi
-            self.sensor_dicc["gyY"]=q*30/math.pi
-            self.sensor_dicc["gyZ"]=r*30/math.pi
+            noise=0.2
+            self.sensor_dicc["gyX"]=p*180/math.pi+random.uniform(-noise, noise)
+            self.sensor_dicc["gyY"]=q*180/math.pi+random.uniform(-noise, noise)
+            self.sensor_dicc["gyZ"]=r*180/math.pi+random.uniform(-noise, noise)
             
         def computeSensorAngles(self):
             RAD_TO_DEG=57.295779
             AccY = math.atan(-1*self.sensor_dicc["accX"]/math.sqrt(pow(self.sensor_dicc["accY"],2) + pow(self.sensor_dicc["accZ"],2)))*RAD_TO_DEG
             AccX = math.atan(self.sensor_dicc["accY"]/math.sqrt(pow(self.sensor_dicc["accX"],2) + pow(self.sensor_dicc["accZ"],2)))*RAD_TO_DEG
-            self.sensor_dicc["angleX"]=self.iAngleX*RAD_TO_DEG
-            self.sensor_dicc["angleY"]=self.iAngleY*RAD_TO_DEG
-            #self.sensor_dicc["angleX"] = 0.98 *(self.sensor_dicc["angleX"]+self.sensor_dicc["gyX"]) + 0.02*AccX
-            #self.sensor_dicc["angleY"] = 0.98*(self.sensor_dicc["angleY"]+self.sensor_dicc["gyY"]) + 0.02*AccY
+            #self.sensor_dicc["angleX"]=self.iAngleX*RAD_TO_DEG
+            #self.sensor_dicc["angleY"]=self.iAngleY*RAD_TO_DEG
+            self.sensor_dicc["angleX"] = 0.8 *(self.sensor_dicc["angleX"]+self.sensor_dicc["gyX"]*0.01) + 0.2*AccX
+            self.sensor_dicc["angleY"] = 0.8*(self.sensor_dicc["angleY"]+self.sensor_dicc["gyY"]*0.01) + 0.2*AccY
             #print "diff angulos"
             #print (self.iAngleX*RAD_TO_DEG)-self.sensor_dicc["angleX"] 
             #print (self.iAngleY*RAD_TO_DEG)-self.sensor_dicc["angleY"]
@@ -144,15 +145,21 @@ class QuadcopterState:
             return [-L+Ix*(p-old_p)/Dt+r*q*(Iz-Iy), -M+Iy*(q-old_q)/Dt+p*r*(Ix-Iz),-N+Iz*(r-old_r)/Dt]
            
         def updateControl(self):
-            ek=5
-            dk=70
-            ik=0.001
-            ekZ=50
-            dkZ=10
-            ikZ=0.5
+            ek=10
+            dk=2
+            ik=0.01
+            ekZ=10
+            dkZ=2
+            ikZ=0.1
             print self.control_dicc
-            err_angleX=self.control_dicc["aX"]-self.sensor_dicc["angleX"]
-            err_angleY=self.control_dicc["aY"]-self.sensor_dicc["angleY"]
+            #err_angleX=self.control_dicc["aX"]-self.sensor_dicc["angleX"]
+            
+            fut_angleX=self.sensor_dicc["angleX"]+(self.sensor_dicc["gyX"]*0.2)
+            err_angleX=self.control_dicc["aX"]-fut_angleX
+            
+            fut_angleY=self.sensor_dicc["angleY"]+(self.sensor_dicc["gyY"]*0.2)
+            err_angleY=self.control_dicc["aY"]-fut_angleY
+
             err_vel_angleZ=self.control_dicc["rotateZ"]-self.sensor_dicc["gyZ"]
             print err_angleX
             print err_angleY

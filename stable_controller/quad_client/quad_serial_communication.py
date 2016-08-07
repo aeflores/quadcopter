@@ -48,7 +48,7 @@ class commThread (threading.Thread):
                         self.state.controls_modified.clear()
                         control_dicc=self.state.getControlValues()
                         for key in control_dicc:
-                                self.serial_port.write(key+"="+control_dicc[key]+"\n")
+                                self.serial_port.write(key+"="+str(control_dicc[key])+"\n")
                         
         print "Closing communication thread"
         self.serial_port.close()
