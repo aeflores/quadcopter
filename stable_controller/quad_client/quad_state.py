@@ -146,8 +146,8 @@ class QuadcopterState:
             return [-L+Ix*(p-old_p)/Dt+r*q*(Iz-Iy), -M+Iy*(q-old_q)/Dt+p*r*(Ix-Iz),-N+Iz*(r-old_r)/Dt]
            
         def updateControl(self):
-            ek=10
-            dk=2
+            ek=50
+            dk=10
             ik=0.01
             ekZ=10
             dkZ=2

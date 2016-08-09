@@ -72,8 +72,8 @@ public:
     ek=10;
     dk=2;
     ik=0.0;
-    ekZ=10;
-    dkZ=2;
+    ekZ=2;
+    dkZ=0.1;
     ikZ=0.0;
   }
   void setDAngleX(float val){
@@ -148,8 +148,8 @@ public:
        float AccX = atan(-1*AcX/sqrt(pow(AcY,2) + pow(AcZ,2)))*RAD_TO_DEG;
        float AccY = atan(AcY/sqrt(pow(AcX,2) + pow(AcZ,2)))*RAD_TO_DEG;
        //Aplicar el Filtro Complementario
-       AngleY = 0.8 *(AngleY+GyX*0.05) + 0.2*AccX;
-       AngleX = 0.8 *(AngleX+GyY*0.05) + 0.2*AccY;
+       AngleY = 0.8 *(AngleY+GyY*0.05) + 0.2*AccX;
+       AngleX = 0.8 *(AngleX+GyX*0.05) + 0.2*AccY;
      }
   }
 };
@@ -198,8 +198,8 @@ public:
        Wire.write(0x43);
        Wire.endTransmission(false);
        Wire.requestFrom(MPU,6,true); 
-       int16_t GyY=Wire.read()<<8|Wire.read();
        int16_t GyX=Wire.read()<<8|Wire.read();
+       int16_t GyY=Wire.read()<<8|Wire.read();
        int16_t GyZ=Wire.read()<<8|Wire.read();
        state.GyX=GyX/G_R;
        state.GyY=GyY/G_R;

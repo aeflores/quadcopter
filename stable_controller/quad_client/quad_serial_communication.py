@@ -60,7 +60,7 @@ class Port_selector:
                 self.root=root
                 frame= Frame(root)
                 frame.pack()
-                self.PortList=["/dev/ttyACM","/dev/ttyACM1","/dev/ttyACM2","/dev/ttyACM3","/dev/ttyACM4","COM1","COM2","COM3"]
+                self.PortList=["/dev/ttyACM","/dev/ttyACM1","/dev/ttyACM2","/dev/ttyACM3","/dev/ttyACM4","COM1","COM2","COM3","/dev/ttyUSB0","/dev/ttyUSB1","/dev/ttyUSB2"]
                 #self.PortList=serial.tools.list_ports()
                 self.port_selectBox=Listbox(frame,selectmode=BROWSE)
                 i=1
