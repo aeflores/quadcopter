@@ -9,10 +9,11 @@ from quad_graphical_interface import *
 from quad_serial_communication import *
 from quad_web_communication import *
 from quad_virtual_communication import *
+from quad_file_communication import *
 from quad_state import *
 
 def main():
-        possibleConnectors={"serial":SerialConnector,"virtual":VirtualConnector,"wifi":WebConnector}
+        possibleConnectors={"serial":SerialConnector,"virtual":VirtualConnector,"wifi":WebConnector,"file":FileConnector}
         if len(sys.argv)>1 and sys.argv[1] in possibleConnectors.keys():
                 connectorClass=possibleConnectors[sys.argv[1]]
         else:

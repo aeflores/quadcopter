@@ -5,6 +5,7 @@
 #define ACCEL_X 0x3B
 #define GYRO_X 0x43
  
+#define WIFI true
 //Ratios de conversion
 #define A_R 16384.0
 #define G_R 131.072
@@ -13,6 +14,9 @@
 #define BIAS_CYCLES 20
 //this is the float version to compute the average
 #define BIAS_DIVIDER 20.0
+
+#define Gy_avg_cnt 5
+
 
 //Conversion de radianes a grados 180/PI
 #define RAD_A_DEG = 57.295779
@@ -42,16 +46,17 @@ public:
   float ek,dk,ik,ekZ,dkZ,ikZ;
   float old_errX,old_errY,old_errVZ;
   float accum_errX,accum_errY,accum_errVZ;
+  float total_unbalance[4];
   QuadState(){
     AcX=0;AcY=0;AcZ=0;GyX=0;GyY=0;GyZ=0;
     AngleX=0;
     AngleY=0;
     ptime=0;
     ptimeControl=0;
-    interval=50;
-    intervalControl=50;
+    interval=20;
+    intervalControl=20;
    
-    STOP=0;
+    STOP=1;
     DAngleX=0;
     DAngleY=0;
     power=1000;
@@ -69,9 +74,9 @@ public:
     engine[3].attach(Eng3);
     for(int i=0;i<4;i++)
        engine[i].writeMicroseconds(eng_speed[i]);
-    ek=10;
-    dk=2;
-    ik=0.0;
+    ek=5;
+    dk=0.5;
+    ik=0.01;
     ekZ=2;
     dkZ=0.1;
     ikZ=0.0;
@@ -89,6 +94,8 @@ public:
    velZ=val;
   }  
   void setSTOP(int val){
+      //reset the integral component
+   accum_errX=0;accum_errY=0;accum_errVZ=0;
    STOP=val;
   }
   void updateControl(){
@@ -123,16 +130,22 @@ public:
           old_errX=err_angleX;
           old_errY=err_angleY;
           old_errVZ=err_vel_angleZ;
-                  
-          unbalanceY=-unbalanceY;
+   
           //Forward left 
-          set_engine(0,int(min(max(power+unbalanceX+unbalanceY+unbalanceZ,1000),2000)));
+          total_unbalance[0]=0+unbalanceX-unbalanceY+unbalanceZ;
           //Forward right
-          set_engine(1,int(min(max(power-unbalanceX+unbalanceY-unbalanceZ,1000),2000)));
+          total_unbalance[1]=0-unbalanceX-unbalanceY-unbalanceZ;
           //Back left
-          set_engine(2,int(min(max(power+unbalanceX-unbalanceY-unbalanceZ,1000),2000)));
+          total_unbalance[2]=0+unbalanceX+unbalanceY-unbalanceZ;
           //Back right
-          set_engine(3,int(min(max(power-unbalanceX-unbalanceY+unbalanceZ,1000),2000)));
+          total_unbalance[3]=0-unbalanceX+unbalanceY+unbalanceZ;
+          
+          for(int i=0;i<4;i++){
+            // stablish a limit of positive umbalance
+            total_unbalance[i]=max(min(200,total_unbalance[i]),-200);
+            set_engine(i,int(min(max(power+total_unbalance[i],1000),2000)));
+          }
+       
         }
     }
   }
@@ -145,11 +158,11 @@ public:
      if(time-ptime>interval){
        ptime=time;
        //Se calculan los angulos Y, X respectivamente.
-       float AccX = atan(-1*AcX/sqrt(pow(AcY,2) + pow(AcZ,2)))*RAD_TO_DEG;
-       float AccY = atan(AcY/sqrt(pow(AcX,2) + pow(AcZ,2)))*RAD_TO_DEG;
+       float AccY = atan(-1*AcX/sqrt(pow(AcY,2) + pow(AcZ,2)))*RAD_TO_DEG;
+       float AccX = atan(AcY/sqrt(pow(AcX,2) + pow(AcZ,2)))*RAD_TO_DEG;
        //Aplicar el Filtro Complementario
-       AngleY = 0.8 *(AngleY+GyY*0.05) + 0.2*AccX;
-       AngleX = 0.8 *(AngleX+GyX*0.05) + 0.2*AccY;
+       AngleY = 0.98 *(AngleY+GyY*0.02) + 0.02*AccY;
+       AngleX = 0.98 *(AngleX+GyX*0.02) + 0.02*AccX;
      }
   }
 };
@@ -157,12 +170,17 @@ class AccelerometerReader{
   unsigned long ptime;
   long interval;
   int bias_counter;
+  
+  int16_t Gyavg[3][Gy_avg_cnt];
+  int16_t posAvg[3];
+  int16_t prev_Avg[3];
+  
   float biasX;
   float biasY;
   float biasZ;
 public:
   AccelerometerReader(){
-    interval=50;
+    interval=10;
     ptime=0;
 
     bias_counter=0;
@@ -176,6 +194,17 @@ public:
     Wire.write(0x6B);
     Wire.write(0);
     Wire.endTransmission(true);
+    //initalize averages
+    initialize_averages();
+  }
+  void initialize_averages(){
+   for(int i=0;i<3;i++){
+     for(int j=0;j<Gy_avg_cnt;j++)
+       Gyavg[i][j]=0;
+    prev_Avg[i]=0;
+    posAvg[i]=0;
+   }
+    
   }
   void Read(QuadState &state){
     unsigned long time=millis();
@@ -201,9 +230,14 @@ public:
        int16_t GyX=Wire.read()<<8|Wire.read();
        int16_t GyY=Wire.read()<<8|Wire.read();
        int16_t GyZ=Wire.read()<<8|Wire.read();
+       
        state.GyX=GyX/G_R;
        state.GyY=GyY/G_R;
        state.GyZ=GyZ/G_R;
+       //state.GyX=get_averaged_Gy(0,GyX)/G_R;
+       //state.GyY=get_averaged_Gy(1,GyY)/G_R;
+       //state.GyZ=get_averaged_Gy(2,GyZ)/G_R;
+       
        if (bias_counter<BIAS_CYCLES){
          update_bias(state.GyX,state.GyY,state.GyZ);
          bias_counter++;
@@ -213,6 +247,19 @@ public:
        state.GyZ=state.GyZ-biasZ;
        }
     }
+  }
+  int16_t get_averaged_Gy(int index,int16_t NewGy){
+    //compute new average
+    //prev_Avg[index]=((prev_Avg[index]*Gy_avg_cnt)-Gyavg[index][posAvg[index]]+NewGy)/Gy_avg_cnt;
+    //store new value
+    Gyavg[index][posAvg[index]]=NewGy;
+    //compute new average
+    for(int i=0;i< Gy_avg_cnt;i++)
+      prev_Avg[index]=Gyavg[index][i];
+    prev_Avg[index]= prev_Avg[index]/Gy_avg_cnt;
+    //increment index
+    posAvg[index]=(posAvg[index]+1)%Gy_avg_cnt;
+    return prev_Avg[index];
   }
   void update_bias(float x,float y,float z){
     biasX+=x/BIAS_DIVIDER;
@@ -234,8 +281,37 @@ public:
     bufferIndex=0;
     control=0;
   }
+  void clean_serial(){
+    while(Serial.available()>0){
+        Serial.read();
+     }
+  }
   void init(){
-   Serial.begin(9600); 
+   Serial.begin(115200); 
+   if(WIFI){
+     delay(7000);
+     clean_serial();
+     Serial.print("AT\r\n");
+     while(Serial.available()==0);
+     clean_serial();
+     Serial.print("AT+CWMODE=2\r\n");
+     while(Serial.available()==0);
+     clean_serial();
+     delay(10000);
+     Serial.print("AT+CIPMODE=1\r\n");
+     while(Serial.available()==0);
+     clean_serial();
+
+     Serial.print("AT+CIPSTART=\"TCP\",\"192.168.4.2\",8888\r\n");
+     while(Serial.available()==0);
+     clean_serial();
+
+     Serial.print("AT+SEND\r\n");
+     delay(5000);
+     clean_serial();
+
+   }
+  
   }
   void send_info(QuadState &state){
    unsigned long time=millis();
@@ -309,6 +385,7 @@ public:
  }
     
 };
+
 
 QuadState state;
 AccelerometerReader accReader;

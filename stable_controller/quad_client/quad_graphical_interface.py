@@ -54,15 +54,16 @@ class MainInterface:
         
         def create_actionFrame(self):
                 verticalFrame1=Frame(self.root)
+                self.startButton = Button(verticalFrame1, text="START",height=3,width=40, command=self.start,bg="green")
                 self.abortButton = Button(verticalFrame1, text="ABORT",height=6,width=40, command=self.emergencyStop,bg="red")
                 controlFrame=Frame(verticalFrame1)
                 self.updownControl=touchControl(controlFrame,"vertical","power","",False,{"Y":1000},{"minY":1000,"maxY":2000},lambda update_map:self.updateControl(update_map))
                 verticalFrame=Frame(controlFrame)
                 self.rotateControl=touchControl(verticalFrame,"horizontal","rotateZ","",True,{"X":0.0},{"minX":-20.0,"maxX":20.0},lambda update_map:self.updateControl(update_map))
                 self.moveControl=touchControl(verticalFrame,"2D","aX", "aY",True,{"X":0.0,"Y":0.0},{"minX":-45.0,"maxX":45.0,"minY":-45.0,"maxY":45.0},lambda update_map:self.updateControl(update_map))
-                self.abortButton.pack(side=LEFT)
                 verticalFrame.pack(side=LEFT)
                 controlFrame.pack(side=TOP)
+                self.startButton.pack(side=TOP)
                 self.abortButton.pack(side=TOP)
                 verticalFrame1.pack(side=LEFT)
                 
@@ -73,6 +74,10 @@ class MainInterface:
                         self.controlsValueList[x]=Scale(engineFrame, orient=VERTICAL, length=200, from_=2000, to=1000,command=lambda val,whichControl=x:self.updateControl(whichControl,val))
                         self.controlsValueList[x].pack(side=LEFT)
                 engineFrame.pack(side=TOP)
+        def start(self):
+            print " control update "
+            print {"STOP":0}
+            self.state.update_controls({"STOP":0})          
         def emergencyStop(self):
             print " control update "
             print {"STOP":1}

@@ -4,7 +4,7 @@ import json
 
 class WebConnector:
         def connect(self):
-            HOST = ''   # Symbolic name, meaning all available interfaces
+            HOST = "192.168.4.2"   # Symbolic name, meaning all available interfaces
             PORT = 8888 # Arbitrary non-privileged port
             #create an INET, STREAMing socket
             serversocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)

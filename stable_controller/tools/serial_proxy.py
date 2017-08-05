@@ -4,54 +4,61 @@ from Tkinter import *
 from tkMessageBox import *
 import json
 
+def main():
+        connector=SerialConnector()
+        if (connector.connect()):
+                connector.start()
+        print "Bye!"
+
 class SerialConnector:
         def connect(self):
-                self.serial_port=None
+                self.serial_port1=None
+                self.serial_port2=None
                 initial_window= Tk()
                 initial_dialog=Port_selector(initial_window)
                 print "Opening port selection dialog"
                 initial_window.mainloop()
-                print "Connected!"
-                self.serial_port=initial_dialog.port
-                return self.serial_port!=None
-        def start(self,state):
+                print "Connected port 1!"
+                self.serial_port1=initial_dialog.port
+                
+                initial_window= Tk()
+                initial_dialog=Port_selector(initial_window)
+                print "Opening port selection dialog"
+                initial_window.mainloop()
+                print "Connected port 2!"
+                self.serial_port2=initial_dialog.port
+                
+                return True
+        def start(self):
                 self.finishEvent=threading.Event()
-                self.communicator_thread= commThread(1, "comm_Thread",1, state,self.serial_port,self.finishEvent)
-                self.communicator_thread.start()
+                self.communicator_thread1= commThread(1, "Reader 1",1, self.serial_port1,self.serial_port2,self.finishEvent)
+                self.communicator_thread2= commThread(1, "Reader 2",1, self.serial_port2,self.serial_port1,self.finishEvent)
+                self.communicator_thread1.start()
+                self.communicator_thread2.start()
         def finish(self):
                  self.finishEvent.set()
                  print "waiting for the communication thread to finish"
-                 self.communicator_thread.join()
+                 self.communicator_thread1.join()
+                 self.communicator_thread2.join()
 
 
 class commThread (threading.Thread):
-    def __init__(self, threadID, name, counter,state,serial_port,finishEvent):
+    def __init__(self, threadID, name, counter,read_port,write_port,finishEvent):
         threading.Thread.__init__(self)
         self.threadID = threadID
         self.name = name
         self.counter = counter
-        self.state=state
-        self.serial_port=serial_port
+        self.read_port=read_port
+        self.write_port=write_port
         self.finished=finishEvent
     def run(self):
         print "Starting communication thread"
         while not self.finished.is_set():
-                state_string=self.serial_port.readline()
-                print "read "+state_string
-                try:
-                        json_data = json.loads(state_string)
-                        self.state.update_sensors(json_data)
-                except ValueError:
-                        print("invalid json term")
-
-                if self.state.controls_modified.is_set():
-                        self.state.controls_modified.clear()
-                        control_dicc=self.state.getControlValues()
-                        for key in control_dicc:
-                                self.serial_port.write(key+"="+str(control_dicc[key])+"\n")
-                        
+                line=self.read_port.readline()
+                print self.name+": "+line
+                self.write_port.write(line)        
         print "Closing communication thread"
-        self.serial_port.close()
+        self.read_port.close()
 
 
 class Port_selector:                         
@@ -79,3 +86,5 @@ class Port_selector:
                         self.root.destroy()
                 except:
                         showerror("Error", "Could not connect to port:"+ self.PortList[selected_port])
+                        
+main()
